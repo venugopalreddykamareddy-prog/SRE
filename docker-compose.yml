@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  datadog:
+    image: "datadog/agent:latest"
+    environment:
+      - DD_API_KEY=your_datadog_api_key
+      - DD_SITE=datadoghq.com
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/datadog-agent:/opt/datadog-agent
+    ports:
+      - "8126:8126"
+      - "5005:5005"
+    command: "supervisord -n"
