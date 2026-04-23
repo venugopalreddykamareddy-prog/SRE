@@ -1,0 +1,19 @@
+# Metrics Collection Configuration for Datadog
+
+metrics:
+  - type: prometheus
+    prometheus_url: http://localhost:9090
+    namespace: my_app
+    metrics_path: /metrics
+    tags:
+      - env:production
+
+  - type: system
+    collect_system_metrics: true
+    tags:
+      - env:production
+
+  - type: docker
+    enabled: true
+    tags:
+      - env:production
