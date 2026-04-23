@@ -1,0 +1,20 @@
+# Log Collection Configuration for Datadog
+
+logs:
+  - type: file
+    path: /var/log/app/*.log
+    service: my-app
+    source: custom
+    tags:
+      - env:production
+  
+  - type: docker
+    service: my-app
+    source: docker
+    tags:
+      - env:production
+
+log_processing_rules:
+  - type: exclude_at_match
+    name: exclude_healthchecks
+    pattern: "healthcheck"
