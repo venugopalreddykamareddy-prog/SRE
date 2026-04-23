@@ -1,0 +1,30 @@
+# APM and Distributed Tracing Configuration for Datadog
+
+apm:
+  enabled: true
+  apm_config:
+    enabled: true
+    
+traces:
+  enabled: true
+  receiver_port: 8126
+  sample_rate: 1.0  
+  
+instrumentation:
+  - type: python
+    enabled: true
+    service: my-app
+    tags:
+      - env:production  
+  
+  - type: java
+    enabled: true
+    service: my-app
+    tags:
+      - env:production  
+  
+  - type: nodejs
+    enabled: true
+    service: my-app
+    tags:
+      - env:production
