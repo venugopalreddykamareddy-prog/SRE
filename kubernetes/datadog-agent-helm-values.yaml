@@ -1,0 +1,42 @@
+# Datadog Agent Helm Chart Values for Kubernetes
+
+datadog:
+  apiKey: YOUR_DATADOG_API_KEY
+  appKey: YOUR_DATADOG_APP_KEY
+  site: datadoghq.com
+
+agents:
+  enabled: true
+  rbac:
+    create: true
+    
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+logs:
+  enabled: true
+  containerCollectAll: true
+
+apm:
+  enabled: true
+  port: 8126
+
+processAgent:
+  enabled: true
+  processCollection: true
+
+systemProbe:
+  enabled: false
+
+clusterChecksRunner:
+  enabled: false
