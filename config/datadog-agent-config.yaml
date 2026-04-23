@@ -1,0 +1,7 @@
+# Datadog Agent Configuration
+
+# This file contains the primary configuration settings for the Datadog agent.
+
+api_key: YOUR_API_KEY
+site: datadoghq.com
+log_level: INFO
