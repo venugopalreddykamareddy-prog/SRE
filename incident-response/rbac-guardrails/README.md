@@ -38,6 +38,7 @@ The worst blast-radius scenarios involve automation, not humans. Humans hesitate
 
 ```
 rbac-guardrails/
+├── rbac_auditor.go                       # K8s RBAC compliance auditor CLI (Go) — see below
 ├── kubernetes/
 │   ├── namespaced-roles.yaml         # Per-namespace Role definitions
 │   ├── cluster-roles.yaml            # ClusterRole definitions (minimal set)
@@ -101,6 +102,55 @@ rbac-guardrails/
 - Scoped to specific resource group only
 - Can failover Redis, restart specific App Services
 - Can NOT deprovision, create new resources, or modify IAM
+
+---
+
+## Kubernetes RBAC Auditor (`rbac_auditor.go`)
+
+A Go CLI that validates live Kubernetes RBAC state against a declared policy baseline. Designed to run as a daily CronJob and as a pre-merge check on changes to any RBAC manifest.
+
+**What it checks:**
+
+| Check | Severity |
+|---|---|
+| ServiceAccount bound to cluster-admin or equivalent | CRITICAL |
+| ServiceAccount with cluster-scoped binding (prefer namespaced) | HIGH |
+| Forbidden verbs (`delete`, `*`) granted in any role | CRITICAL |
+| Access to sensitive resources (`secrets`, `configmaps`) | HIGH |
+
+**Policy baseline** is a YAML file (`kubernetes/rbac-policy.yaml`) that declares which accounts are permitted to hold privileged bindings, which verbs are forbidden, and which resources require explicit justification. Changes to the policy file go through PR review the same way RBAC manifests do.
+
+```bash
+# Build
+go build -o rbac_auditor ./rbac_auditor.go
+
+# Audit production namespace against policy
+./rbac_auditor --policy kubernetes/rbac-policy.yaml --namespace production
+
+# Write JSON report (consumed by CI gate or Jira automation)
+./rbac_auditor --policy kubernetes/rbac-policy.yaml --namespace production --output audit-report.json
+```
+
+**Exit codes:** `0` = no violations, `1` = violations found (blocks CI), `2` = tool error
+
+**Example output:**
+
+```
+RBAC Audit — https://eks.example.com
+Namespace:   production
+Checked:     34 bindings
+Violations:  2
+────────────────────────────────────────────────────────────
+[CRITICAL] ClusterRoleBinding/legacy-migration-binding
+  Subject: kube-system/migration-job
+  Issue: ServiceAccount bound to "cluster-admin" (cluster-admin equivalent)
+  Fix: Remove binding or add account to privileged_accounts policy with justification.
+
+[HIGH] Role/order-processor
+  Subject: production/order-processor
+  Issue: Access to sensitive resource "secrets" with verbs [get list watch]
+  Fix: Scope to a specific resource name or remove access if not required.
+```
 
 ---
 

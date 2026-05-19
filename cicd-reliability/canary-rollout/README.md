@@ -80,9 +80,8 @@ canary-rollout/
 │   ├── rollout-definition.yaml          # Argo Rollouts CRD for canary strategy
 │   └── analysis-template.yaml          # AnalysisTemplate for metric-based gate
 ├── controllers/
-│   ├── canary-controller.py             # Canary gate evaluation and promotion logic
-│   ├── rollback-handler.py              # Automated rollback execution
-│   └── metric-collector.py             # Polls Datadog for gate metrics
+│   ├── canary_controller.py             # Canary gate evaluation and promotion logic (Python)
+│   └── rollback_handler.go              # Rollback webhook receiver — scales canary to 0, pages PagerDuty (Go)
 ├── monitoring/
 │   ├── canary-dashboard.json           # Grafana: canary vs. stable side-by-side
 │   └── canary-alerts.yaml             # Datadog monitors for canary-specific signals
@@ -92,6 +91,43 @@ canary-rollout/
 │   └── canary-status.sh                # Current canary state and metrics summary
 └── config/
     └── rollout-config.yaml             # Thresholds, timing, service-specific overrides
+```
+
+---
+
+## Controller Implementations
+
+### `canary_controller.py` — Gate evaluator (Python)
+
+Polls Datadog for canary vs. stable fleet metrics over the observation window, evaluates each gate threshold from `config/rollout-config.yaml`, and calls the Argo Rollouts CLI to promote or abort. Runs as a Kubernetes Job triggered at the end of each observation window.
+
+```bash
+python controllers/canary_controller.py --service ordering-api --stage 1
+python controllers/canary_controller.py --service ordering-api --stage 1 --dry-run
+```
+
+### `rollback_handler.go` — Rollback webhook (Go)
+
+An HTTP server that receives rollback signals from Argo Rollouts analysis failures or direct CI triggers. On receipt it:
+
+1. Finds all Deployments with `version=canary` for the service
+2. Removes the canary label so Istio stops routing traffic to them
+3. Scales canary Deployments to 0 replicas and confirms scale-down
+4. Fires a PagerDuty P2 incident with the failing metric and observed value
+
+Written in Go rather than Python because it runs as a **persistent service** (not a one-shot Job) and needs to handle concurrent rollback requests without a process-per-request model. The Kubernetes and HTTP client libraries in Go's standard ecosystem (`client-go`, `net/http`) are also a better fit for a long-running webhook receiver than Python's threading model.
+
+```bash
+# Build
+go build -o rollback_handler ./controllers/rollback_handler.go
+
+# Run
+PAGERDUTY_ROUTING_KEY=xxx ./rollback_handler --port 8080 --namespace production
+
+# Trigger a rollback manually
+curl -X POST http://localhost:8080/rollback \
+  -H 'Content-Type: application/json' \
+  -d '{"service":"ordering-api","version":"v2.14.3","failing_metric":"latency_p99_delta","observed_value":78.2,"threshold":50}'
 ```
 
 ---

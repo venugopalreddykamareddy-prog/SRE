@@ -170,8 +170,129 @@ The contributing templates give the on-call engineer a head start before they ev
 
 ---
 
+## Related Tool — AI Log Triage Classifier
+
+[`../ai_log_analyzer.py`](../ai_log_analyzer.py) is an OpenAI-powered companion script that sits downstream of the anomaly detector. Where the anomaly detector answers **"is something wrong?"**, the triage classifier answers **"what is wrong and what do I do right now?"**
+
+### How they fit together
+
+```
+Anomaly Detector (ML)          AI Log Analyzer (OpenAI GPT-4o)
+─────────────────────          ───────────────────────────────
+Detects behavioral deviation   Classifies severity (P1–P4)
+Scores against baseline        Identifies root cause category
+Fires PagerDuty alert    ───►  Suggests immediate actions
+                               Formats Slack triage block
+```
+
+When the anomaly detector fires (score > 0.75), the contributing log templates can be piped directly into `ai_log_analyzer.py` to generate a structured triage report for the on-call engineer.
+
+### Usage
+
+```bash
+# Install dependency
+pip install openai
+
+# Set API key
+export OPENAI_API_KEY=sk-...
+
+# Classify a single log line
+python ../ai_log_analyzer.py \
+  --log "FATAL db-pool exhausted: no connections available (pool_size=50)" \
+  --service ordering-api
+
+# Classify a file of log lines (one per line)
+python ../ai_log_analyzer.py \
+  --file /var/log/ordering-api.log \
+  --service ordering-api \
+  --export triage-report.json
+
+# Run built-in sample logs (no arguments needed)
+python ../ai_log_analyzer.py
+```
+
+### Triage output per log entry
+
+```
+──────────────────────────────────────────────────────────────────────
+Service : ordering-api
+Log     : FATAL db-pool exhausted: no connections available (pool_size=50, wait_timeout=30s…
+──────────────────────────────────────────────────────────────────────
+Severity: P1  (🔴)
+Category: database
+Summary : Database connection pool exhausted, blocking all requests
+Escalate: YES — page now
+
+Root cause hint:
+  Connection pool limit of 50 reached with 120 pending requests,
+  likely caused by slow queries or a downstream DB bottleneck holding
+  connections open longer than expected.
+
+Immediate actions:
+  1. Check active DB connections: SELECT count(*) FROM pg_stat_activity
+  2. Kill long-running queries blocking the pool
+  3. Temporarily increase pool_size in the service config and redeploy
+  4. Review slow query log for queries > 5s in the last 15 minutes
+  5. Alert DBA if connection count on the DB host side is also maxed
+
+Confidence: 94%
+```
+
+### Severity tiers
+
+| Severity | Meaning | Escalate? |
+|---|---|---|
+| P1 | Customer-facing outage, data loss risk, security breach | Yes |
+| P2 | Degraded service, error rate > 5%, significant latency | Usually |
+| P3 | Single component degraded, isolated errors, < 5% impact | No |
+| P4 | Warning or informational anomaly, no user impact | No |
+
+### Script structure
+
+```
+ai_log_analyzer.py
+├── LogEntry              # Input: raw log line, service name, timestamp
+├── TriageResult          # Output: severity, category, root cause, actions
+├── LogTriageClassifier   # OpenAI wrapper with JSON-mode enforcement
+│   ├── classify()        # Single log entry
+│   └── classify_batch()  # List of entries
+└── CLI                   # --log | --file | --service | --model | --export
+```
+
+---
+
+## Related Tool — Prometheus SLO Exporter
+
+[`../slo_exporter/main.go`](../slo_exporter/main.go) is a Go service that bridges the Datadog-centric SLO metrics into Prometheus format, making them available to Grafana and any Prometheus-compatible alerting stack.
+
+It exposes three metrics per SLO on a `/metrics` endpoint:
+
+| Metric | Description |
+|---|---|
+| `slo_compliance_ratio{service, slo_name}` | Current SLI value (1.0 = perfect availability) |
+| `slo_error_budget_remaining_ratio{service, slo_name}` | Fraction of monthly budget remaining |
+| `slo_burn_rate{service, slo_name, window}` | Burn rate across 1h, 6h, 72h windows |
+
+The burn rate metrics feed directly into the `slo-burn-rate-live` Grafana dashboard and align with the thresholds used in `scripts/slo_burn_rate_alert.py` — one source of truth for what "burning too fast" means across both the alerting pipeline and the dashboards.
+
+```bash
+# Build
+go build -o slo_exporter ./slo_exporter/main.go
+
+# Run (scrapes Datadog, serves Prometheus metrics on :9090)
+DD_API_KEY=xxx DD_APP_KEY=yyy ./slo_exporter --config slo-config.yaml --port 9090
+
+# Verify
+curl http://localhost:9090/metrics | grep slo_burn_rate
+```
+
+Deploy as a sidecar or standalone Deployment; add a `ServiceMonitor` CRD if using the Prometheus Operator.
+
+---
+
 ## Prerequisites
 
+**Anomaly detector (Python ML pipeline)**
 - Python 3.10+
 - Kafka 3.x (log stream source)
 - Kubernetes (for deployment and retraining CronJob)
@@ -179,3 +300,13 @@ The contributing templates give the on-call engineer a head start before they ev
 - TensorFlow 2.x / Keras (LSTM Autoencoder)
 - Drain3 library
 - PagerDuty Events API v2 key
+
+**AI log triage classifier (`ai_log_analyzer.py`)**
+- OpenAI Python SDK (`pip install openai`)
+- OpenAI API key with access to `gpt-4o`
+
+**Prometheus SLO exporter (`slo_exporter/main.go`)**
+- Go 1.21+
+- `github.com/prometheus/client_golang`
+- `sigs.k8s.io/yaml`
+- Datadog API key + app key (`DD_API_KEY`, `DD_APP_KEY`)
