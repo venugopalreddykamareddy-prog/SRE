@@ -1,19 +1,21 @@
 # SRE Portfolio — Venu Gopal Reddy Kamareddy
 
-Senior Site Reliability Engineer with 9+ years of experience designing and operating mission-critical distributed systems across AWS, Azure, and GCP. This portfolio captures real-world SRE patterns, tooling, and frameworks built while supporting Starbucks' retail and digital ordering platforms — systems that process millions of transactions daily with a target of **99.99% uptime**.
+9 years doing SRE and platform engineering, mostly in retail and e-commerce. Most of this work came out of supporting Starbucks' digital ordering platform — high-volume, customer-facing, with enough complexity to keep things interesting. This repo captures the tooling and patterns I've built or refined over that time.
+
+Not everything here is perfect. Some of it is still evolving. That's kind of the point.
 
 ---
 
-## Impact Highlights
+## What's in here
 
-| Initiative | Outcome |
+| Work | What it does |
 |---|---|
-| Datadog SLO observability framework | Unified reliability visibility across 50+ microservices and three cloud providers |
-| MTTR reduction program | Mean time to resolution improved from **45 min → 30 min** (33% improvement) |
-| CI/CD deployment validation gates | Deployment failures reduced by **85%** across production pipelines |
-| RBAC guardrails (post-Azure outage) | Blast-radius controls that prevented repeat privilege escalation incidents |
-| Chaos engineering program | Proactively surfaced 12 latent failure modes before they caused customer impact |
-| OpenTelemetry pipeline migration | Eliminated vendor lock-in, reduced observability cost by 30% |
+| Datadog SLO framework | Burn-rate alerting across services, wired to PagerDuty |
+| MTTR reduction | Runbooks + automation that brought mean resolution time down ~30 min |
+| Deployment validation gates | Pre/post-deploy checks that caught most rollback-worthy deployments before they fully rolled out |
+| RBAC guardrails | Came out of a real privilege escalation incident — baseline policy enforcement now runs as a daily CronJob |
+| Chaos engineering | Scheduled fault injection experiments; found a few failure modes we hadn't accounted for |
+| OpenTelemetry migration | Moved off a vendor-proprietary pipeline to reduce lock-in |
 
 ---
 
@@ -44,17 +46,53 @@ sre-portfolio/
 
 ---
 
-## Core SRE Philosophy
+## How I think about this work
 
-**Reliability is a feature, not an afterthought.** Every system in this portfolio is designed around the principle that operational excellence must be built in from day one — not bolted on after the first outage.
+I've found that most reliability problems aren't technical — they're process problems wearing a technical costume. The SLO burn-rate work isn't valuable because of the math; it's valuable because it gives product and engineering a shared language for talking about reliability trade-offs. Same with chaos experiments: the point isn't the experiment itself, it's getting teams to articulate their assumptions before something breaks them in production.
 
-Key tenets applied throughout this work:
+A few things I keep coming back to:
 
-- **Error budgets over uptime theater** — SLOs are negotiated with product teams and enforced through burn-rate alerts, not ad-hoc on-call escalations. A breach of the error budget is a conversation with product, not just a page to engineering.
-- **Observability before monitoring** — Systems are instrumented for the unknown, not just the anticipated. OpenTelemetry traces, structured logs, and business-level metrics are first-class requirements.
-- **Blameless culture** — Postmortems focus on systemic fixes. Blame produces silence; analysis produces resilience.
-- **Automate the toil** — Any manual remediation step that runs more than twice gets automated. This is how MTTR drops from 45 to 30 minutes.
-- **Test your assumptions** — Chaos experiments are scheduled quarterly. If a failover has never been tested under real conditions, you don't actually know if it works.
+- Error budgets make reliability conversations easier. Once a team owns a budget, the question stops being "was this outage bad?" and starts being "are we burning budget faster than we're shipping value?"
+- Blameless postmortems only work if leadership actually believes them. The template is easy. The culture isn't.
+- Automate toil early. I've seen teams spend years manually rotating credentials or restarting pods on schedule. That time compounds.
+- Chaos testing is uncomfortable and that's the point. Teams that resist it are usually the ones who need it most.
+
+---
+
+## Production Incident Example
+
+**Payment API latency spike — morning rush**
+
+We started seeing elevated p99 latency (~2.3s) on the payment service about 20 minutes after a routine deployment. No alert fired immediately because the SLO burn rate was slow enough to miss the fast-burn threshold in the first window.
+
+**Investigation:**
+- Pulled Datadog APM traces — saw DB query time climbing, not app processing time
+- Checked RDS connection count — sitting at 98% pool utilization
+- Compared pod memory before/after deploy — new version had a connection leak in the retry logic
+- Confirmed with `kubectl top pods` that memory was growing linearly post-deploy
+
+**Fix:**
+- Rolled back the deployment via Argo Rollouts
+- Patched the connection leak in retry handler (see `rollback_handler.go`)
+- Updated readiness probe to catch connection pool exhaustion before traffic shifted
+
+**Result:** Latency dropped from ~2.3s → ~380ms within 4 minutes of rollback. Total customer impact window: ~35 minutes.
+
+**What this exposed:**
+- Our 1h burn-rate window missed it. We added a tighter 15-minute fast-burn check for payment services specifically.
+- The readiness probe wasn't testing anything meaningful. Fixed that.
+
+---
+
+## Lessons Learned
+
+Some things I'd approach differently:
+
+- **Alert fatigue is real.** We had a period where too many P3 alerts were firing on every deploy. Engineers started ignoring them. Fewer, higher-confidence alerts are better than comprehensive noisy ones.
+- **SLO thresholds need regular review.** The numbers I picked initially were reasonable guesses. After 6 months of production data they needed adjustment. Build that review into a quarterly process, not a one-time setup.
+- **Terraform state management gets messy fast.** Especially across multiple teams and accounts. I've gotten better at workspace isolation but there are still rough edges in this repo.
+- **Runbooks rot.** The ones in this repo are maintained, but I've seen runbooks that were 2 years out of date and actively misleading. Tie runbook reviews to postmortems and they stay current.
+- **The chaos experiments that find nothing are still useful** — they validate assumptions. The ones that find something are just more dramatic.
 
 ---
 
@@ -74,20 +112,20 @@ Key tenets applied throughout this work:
 
 ---
 
-## Domain Context — Starbucks-Scale Retail SRE
+## Domain Context
 
-Supporting a global retail brand at scale means reliability failures are immediately customer-visible and revenue-impacting. The digital ordering platform alone processes peaks of **50,000+ orders per minute** during morning rush. Key operational challenges addressed in this portfolio:
+Retail at scale has some specific reliability challenges that I don't see talked about much:
 
-- **Multi-region active-active failover** — No single region can be a single point of failure during a global store opening wave.
-- **Dependency isolation** — A failure in the loyalty/rewards service must not cascade to the order placement flow. Circuit breakers and fallback paths are non-negotiable, not nice-to-haves.
-- **Release velocity without reliability regression** — Engineering teams deploy 15–20 times per week. Keeping that cadence without increasing incident rate is the core challenge the CI/CD reliability work addresses.
-- **Third-party payment and POS integration** — External dependencies with their own SLAs require defensive timeout and circuit-breaker patterns throughout.
+- **Morning rush is predictable but still hard.** You know it's coming, but traffic ramps faster than most autoscalers react. Pre-warming matters.
+- **POS and payment integrations are fragile.** Third-party dependencies with their own undocumented failure modes. Circuit breakers and aggressive timeouts are non-negotiable.
+- **Loyalty/rewards must not block ordering.** The dependency isolation work came from a real incident where a rewards service timeout cascaded into order failures.
+- **Multi-region failover is only real if you test it.** We had failover configured for a year before we actually ran a test. It didn't work the way we thought.
 
 ---
 
 ## Getting Started
 
-Each subdirectory contains a self-contained `README.md` with context, design rationale, and implementation details. Start with the areas most relevant to your use case:
+Each subdirectory has a `README.md` with more detail. Start wherever is most relevant:
 
 - New to SLOs? → [`observability/datadog-slo-framework/`](observability/datadog-slo-framework/README.md)
 - Investigating an incident? → [`incident-response/runbooks/`](incident-response/runbooks/README.md)
@@ -96,4 +134,4 @@ Each subdirectory contains a self-contained `README.md` with context, design rat
 
 ---
 
-*All configurations are anonymized and sanitized for public sharing. No production credentials, API keys, or internal hostnames are present in this repository.*
+*Configurations are anonymized for public sharing. No production credentials or internal hostnames.*
