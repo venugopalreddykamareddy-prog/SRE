@@ -1,0 +1,17 @@
+# canary gate evaluation — payment-api deploy v2.14.1
+# triggered by GitHub Actions post-deploy step
+# command: python canary_controller.py --service payment-api --stage 1 --config config/rollout-config.yaml
+
+[2026-04-18T07:43:11Z] Evaluating canary gate — service=payment-api stage=1 lookback=1800s
+
+Gate FAILED
+  [PASS] error_rate_delta: 0.0008pp (threshold: 0.1pp)
+  [FAIL] latency_p99_delta: 1847.3000ms (threshold: 50ms)
+  [FAIL] slo_burn_rate_ratio: 3.84x (threshold: 2.0x)
+  [PASS] pod_restart_rate: 0.00/min (threshold: 2.0/min)
+
+Gate failed. Initiating rollback for payment-api...
+
+# this was the connection pool exhaustion incident — latency shot up ~20 min after deploy
+# slo_burn_rate_ratio was the clearest signal; latency took a few minutes to fully manifest
+# rollback completed in ~4 min, p99 back to baseline within 2 min after that

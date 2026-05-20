@@ -1,0 +1,27 @@
+# rbac audit — production namespace
+# command: ./rbac_auditor --policy kubernetes/rbac-policy.yaml --namespace production --output rbac-report.json
+# run as part of daily CronJob, also triggered manually after the Azure privilege escalation incident
+
+RBAC Audit — https://prod-eks-usw2.internal:6443
+Namespace:   production
+Checked:     53 bindings
+Violations:  3
+────────────────────────────────────────────────────────────────────────────────
+[CRITICAL] ClusterRoleBinding/legacy-data-migration
+  Subject: production/migration-runner
+  Issue: ServiceAccount bound to "cluster-admin" (cluster-admin equivalent)
+  Fix: Remove binding or add account to privileged_accounts policy with justification.
+
+[HIGH] ClusterRoleBinding/metrics-scraper
+  Subject: monitoring/prom-scraper
+  Issue: ServiceAccount has cluster-scoped binding; prefer namespace-scoped RoleBinding
+  Fix: Replace with a namespaced RoleBinding scoped to the service's namespace.
+
+[HIGH] Role/order-processor-role in production
+  Subject: production/order-processor
+  Issue: Access to sensitive resource "secrets" with verbs [get list watch]
+  Fix: Scope to a specific resource name or remove access if not required.
+
+# the cluster-admin one was leftover from a one-off migration job that ran 8 months ago
+# nobody cleaned it up — this is exactly what the auditor is for
+# fixed same day, migration-runner SA deleted

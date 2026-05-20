@@ -78,6 +78,11 @@ We started seeing elevated p99 latency (~2.3s) on the payment service about 20 m
 
 **Result:** Latency dropped from ~2.3s → ~380ms within 4 minutes of rollback. Total customer impact window: ~35 minutes.
 
+Captured outputs from this incident:
+- [`examples/kubectl-incident-snapshot.txt`](examples/kubectl-incident-snapshot.txt) — pod memory growth and connection pool logs that confirmed the leak
+- [`examples/canary-gate-fail-rollback.txt`](examples/canary-gate-fail-rollback.txt) — gate evaluation output that triggered the rollback
+- [`examples/slo-burn-rate-report.txt`](examples/slo-burn-rate-report.txt) — burn rate report showing payment-api at 8.8x during the 6h window
+
 **What this exposed:**
 - Our 1h burn-rate window missed it. We added a tighter 15-minute fast-burn check for payment services specifically.
 - The readiness probe wasn't testing anything meaningful. Fixed that.
@@ -120,6 +125,21 @@ Retail at scale has some specific reliability challenges that I don't see talked
 - **POS and payment integrations are fragile.** Third-party dependencies with their own undocumented failure modes. Circuit breakers and aggressive timeouts are non-negotiable.
 - **Loyalty/rewards must not block ordering.** The dependency isolation work came from a real incident where a rewards service timeout cascaded into order failures.
 - **Multi-region failover is only real if you test it.** We had failover configured for a year before we actually ran a test. It didn't work the way we thought.
+
+---
+
+## Sample Outputs
+
+Real output from these tools — useful for understanding what they actually produce:
+
+| File | What it shows |
+|---|---|
+| [`examples/canary-gate-fail-rollback.txt`](examples/canary-gate-fail-rollback.txt) | Gate failure triggering a rollback during the payment-api incident |
+| [`examples/canary-gate-pass.txt`](examples/canary-gate-pass.txt) | Clean two-stage canary promotion |
+| [`examples/slo-burn-rate-report.txt`](examples/slo-burn-rate-report.txt) | Burn rate report across 4 services, one in P2 alert state |
+| [`examples/rbac-audit-violations.txt`](examples/rbac-audit-violations.txt) | RBAC audit catching a leftover cluster-admin binding from a migration job |
+| [`examples/kubectl-incident-snapshot.txt`](examples/kubectl-incident-snapshot.txt) | kubectl output during the payment-api connection pool incident |
+| [`examples/log-triage-sample.txt`](examples/log-triage-sample.txt) | AI log triage classifying P1 errors with remediation steps |
 
 ---
 

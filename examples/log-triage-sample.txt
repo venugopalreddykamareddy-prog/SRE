@@ -1,0 +1,53 @@
+# ai log triage output — sample from ordering-api incident window
+# command: python observability/ai_log_analyzer.py --file /tmp/ordering-api-errors.log --service ordering-api
+
+No input provided — running built-in sample logs.
+
+──────────────────────────────────────────────────────────────────────
+Service : ordering-api
+Log     : FATAL db-pool exhausted: no connections available (pool_size=50, wait_timeout=30s, pending_reque…
+──────────────────────────────────────────────────────────────────────
+Severity: P1  (🔴)
+Category: database
+Summary : Database connection pool exhausted under peak load
+Escalate: YES — page now
+
+Root cause hint:
+  Connection pool exhausted, likely due to a connection leak in recent code changes or an unexpected traffic
+  spike exceeding configured pool capacity. High pending_requests count (120) suggests requests are queuing
+  rather than failing fast.
+
+Immediate actions:
+  1. Check recent deployments for connection handling changes
+  2. Review RDS instance connection count in CloudWatch or Datadog
+  3. Temporarily increase pool_size as a stopgap if traffic spike is the cause
+  4. Restart affected pods to clear leaked connections
+  5. Set connection acquire timeout lower to fail fast rather than queue
+
+Confidence: 94%
+
+──────────────────────────────────────────────────────────────────────
+Service : checkout-service
+Log     : ERROR circuit breaker OPEN for payment-service after 5 consecutive failures (latency_p99=8400ms)
+──────────────────────────────────────────────────────────────────────
+Severity: P1  (🔴)
+Category: network
+Summary : Circuit breaker open due to payment service failures
+Escalate: YES — page now
+
+Root cause hint:
+  The circuit breaker opened after 5 consecutive failures to payment-service with very high latency
+  (8400ms p99). This is almost certainly a downstream dependency issue — the payment service itself
+  is degraded, and checkout is now protecting itself from cascading failure.
+
+Immediate actions:
+  1. Investigate payment-service directly — check its error rate and latency independently
+  2. Verify circuit breaker fallback is returning appropriate responses to customers
+  3. Check if payment provider (external) is reporting any incidents
+  4. Do not force-close the circuit breaker until payment-service is confirmed healthy
+
+Confidence: 91%
+
+──────────────────────────────────────────────────────────────────────
+
+Summary: 5 log(s) analyzed — 2 P1, 2 require escalation

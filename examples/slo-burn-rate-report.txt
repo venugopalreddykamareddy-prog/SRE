@@ -1,0 +1,37 @@
+# slo burn rate report — 2026-04-18 07:30 UTC (during incident window)
+# command: python scripts/slo_burn_rate_alert.py --config scripts/slo-config.yaml --dry-run
+
+────────────────────────────────────────────────────────────
+Service: ordering-api  (SLO target: 99.900%)
+   1h  error_rate=0.000312  burn=  0.31x  budget_remaining=99.91%
+   6h  error_rate=0.000278  burn=  0.28x  budget_remaining=99.83%
+  72h  error_rate=0.000190  burn=  0.19x  budget_remaining=98.10%
+
+  [OK] All burn rates within threshold
+
+────────────────────────────────────────────────────────────
+Service: payment-api  (SLO target: 99.900%)
+   1h  error_rate=0.000980  burn=  0.98x  budget_remaining=99.73%
+   6h  error_rate=0.008840  burn=  8.84x  budget_remaining=94.70%  ← MEDIUM BURN
+  72h  error_rate=0.001120  burn=  1.12x  budget_remaining=89.22%
+
+  [P2] Medium burn detected on payment-api: 6h burn rate 8.8x (threshold 6.0x).
+  [dry-run] Would page PagerDuty: P2 — Medium burn detected on payment-api: 6h burn rate 8.8x (threshold 6.0x).
+
+────────────────────────────────────────────────────────────
+Service: loyalty-api  (SLO target: 99.500%)
+   1h  error_rate=0.001820  burn=  0.36x  budget_remaining=99.97%
+   6h  error_rate=0.001540  burn=  0.31x  budget_remaining=99.81%
+  72h  error_rate=0.001210  burn=  0.24x  budget_remaining=97.10%
+
+  [OK] All burn rates within threshold
+
+────────────────────────────────────────────────────────────
+Service: inventory-api  (SLO target: 99.900%)
+   1h  error_rate=0.000120  burn=  0.12x  budget_remaining=99.97%
+   6h  error_rate=0.000098  burn=  0.10x  budget_remaining=99.94%
+  72h  error_rate=0.000087  burn=  0.09x  budget_remaining=99.35%
+
+  [OK] All burn rates within threshold
+
+# note: 1h window didn't catch this fast enough — added tighter 15m window for payment-api after this incident

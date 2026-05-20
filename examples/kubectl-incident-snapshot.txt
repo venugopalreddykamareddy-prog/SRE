@@ -1,0 +1,36 @@
+# kubectl snapshots taken during payment-api latency incident — 2026-04-18 ~07:40 UTC
+
+$ kubectl top pods -n production -l app=payment-api
+NAME                           CPU(cores)   MEMORY(bytes)
+payment-api-7d9f4b8c6-4xkpq   182m         891Mi
+payment-api-7d9f4b8c6-8nwrt   194m         934Mi
+payment-api-7d9f4b8c6-f2mds   178m         912Mi
+payment-api-canary-6c8b7d-9vt  201m         1847Mi   # <-- memory growing, this was the leak
+
+$ kubectl describe pod payment-api-canary-6c8b7d-9vt -n production | grep -A5 "Last State"
+    Last State:     Terminated
+      Reason:       OOMKilled
+      Exit Code:    137
+      Started:      Fri, 18 Apr 2026 07:38:44 +0000
+      Finished:     Fri, 18 Apr 2026 07:39:01 +0000
+
+$ kubectl logs payment-api-canary-6c8b7d-9vt -n production --tail=30 | grep -i "connection\|pool\|db"
+2026-04-18T07:35:12Z WARN  db-pool: 45/50 connections in use
+2026-04-18T07:36:44Z WARN  db-pool: 49/50 connections in use
+2026-04-18T07:37:01Z ERROR db-pool exhausted: no connections available (pool_size=50, wait_timeout=30s, pending_requests=84)
+2026-04-18T07:37:01Z ERROR db-pool exhausted: no connections available (pool_size=50, wait_timeout=30s, pending_requests=91)
+2026-04-18T07:37:02Z ERROR db-pool exhausted: no connections available (pool_size=50, wait_timeout=30s, pending_requests=103)
+2026-04-18T07:37:02Z ERROR request failed: context deadline exceeded (db acquire timeout after 30s)
+2026-04-18T07:37:03Z ERROR request failed: context deadline exceeded (db acquire timeout after 30s)
+
+$ kubectl rollout undo deployment/payment-api-canary -n production
+deployment.apps/payment-api-canary rolled back
+
+$ kubectl rollout status deployment/payment-api -n production
+Waiting for deployment "payment-api" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "payment-api" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "payment-api" rollout to finish: 1 old replicas are pending termination...
+deployment "payment-api" successfully rolled out
+
+# p99 came back down within ~2 min of rollback completing
+# confirmed with Datadog APM — DB query time normalized immediately once canary pods were gone

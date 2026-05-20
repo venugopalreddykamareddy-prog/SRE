@@ -1,0 +1,22 @@
+# canary gate evaluation — payment-api deploy v2.14.2 (hotfix)
+# command: python canary_controller.py --service payment-api --stage 1 --config config/rollout-config.yaml
+
+[2026-04-18T09:12:04Z] Evaluating canary gate — service=payment-api stage=1 lookback=1800s
+
+Gate PASSED
+  [PASS] error_rate_delta: 0.0003pp (threshold: 0.1pp)
+  [PASS] latency_p99_delta: 12.8000ms (threshold: 50ms)
+  [PASS] slo_burn_rate_ratio: 1.02x (threshold: 2.0x)
+  [PASS] pod_restart_rate: 0.00/min (threshold: 2.0/min)
+
+Promoting payment-api to next stage...
+
+[2026-04-18T09:43:17Z] Evaluating canary gate — service=payment-api stage=2 lookback=1800s
+
+Gate PASSED
+  [PASS] error_rate_delta: 0.0001pp (threshold: 0.1pp)
+  [PASS] latency_p99_delta: 9.1000ms (threshold: 50ms)
+  [PASS] slo_burn_rate_ratio: 0.98x (threshold: 2.0x)
+  [PASS] pod_restart_rate: 0.00/min (threshold: 2.0/min)
+
+Promoting payment-api to next stage...
