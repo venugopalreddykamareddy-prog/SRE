@@ -8,7 +8,7 @@ Senior Site Reliability Engineer with 9+ years of experience designing and opera
 
 | Initiative | Outcome |
 |---|---|
-| Datadog SLO observability framework | Unified multi-cloud reliability visibility across 200+ services |
+| Datadog SLO observability framework | Unified reliability visibility across 50+ microservices and three cloud providers |
 | MTTR reduction program | Mean time to resolution improved from **45 min → 30 min** (33% improvement) |
 | CI/CD deployment validation gates | Deployment failures reduced by **85%** across production pipelines |
 | RBAC guardrails (post-Azure outage) | Blast-radius controls that prevented repeat privilege escalation incidents |
@@ -50,11 +50,11 @@ sre-portfolio/
 
 Key tenets applied throughout this work:
 
-- **Error budgets over uptime theater** — SLOs are negotiated with product teams and enforced through burn-rate alerts, not ad-hoc on-call escalations.
+- **Error budgets over uptime theater** — SLOs are negotiated with product teams and enforced through burn-rate alerts, not ad-hoc on-call escalations. A breach of the error budget is a conversation with product, not just a page to engineering.
 - **Observability before monitoring** — Systems are instrumented for the unknown, not just the anticipated. OpenTelemetry traces, structured logs, and business-level metrics are first-class requirements.
-- **Blameless culture** — Every postmortem focuses on systemic fixes. Individual blame produces silence; systemic analysis produces resilience.
+- **Blameless culture** — Postmortems focus on systemic fixes. Blame produces silence; analysis produces resilience.
 - **Automate the toil** — Any manual remediation step that runs more than twice gets automated. This is how MTTR drops from 45 to 30 minutes.
-- **Test your assumptions** — Chaos experiments are scheduled quarterly. If a failover has never been tested, it does not exist.
+- **Test your assumptions** — Chaos experiments are scheduled quarterly. If a failover has never been tested under real conditions, you don't actually know if it works.
 
 ---
 
@@ -62,15 +62,15 @@ Key tenets applied throughout this work:
 
 **Cloud:** AWS (EKS, RDS, SQS, CloudWatch), Azure (AKS, Azure Monitor, Event Hubs), GCP (GKE, Cloud Spanner, Pub/Sub)
 
-**Observability:** Datadog, OpenTelemetry, Grafana, Prometheus, Loki, Jaeger
+**Observability:** Datadog, OpenTelemetry, Grafana, Prometheus
 
-**Infrastructure:** Terraform, Helm, Kubernetes, Istio, ArgoCD
+**Infrastructure:** Terraform, Helm, Kubernetes
 
-**CI/CD:** GitHub Actions, Jenkins, ArgoCD, Spinnaker
+**CI/CD:** GitHub Actions, Jenkins
 
-**Incident Management:** PagerDuty, Slack, Opsgenie, Jira
+**Incident Management:** PagerDuty, Slack, Jira
 
-**Chaos Engineering:** Chaos Monkey, LitmusChaos, AWS Fault Injection Simulator
+**Chaos Engineering:** LitmusChaos, AWS Fault Injection Simulator
 
 ---
 
@@ -79,8 +79,8 @@ Key tenets applied throughout this work:
 Supporting a global retail brand at scale means reliability failures are immediately customer-visible and revenue-impacting. The digital ordering platform alone processes peaks of **50,000+ orders per minute** during morning rush. Key operational challenges addressed in this portfolio:
 
 - **Multi-region active-active failover** — No single region can be a single point of failure during a global store opening wave.
-- **Dependency isolation** — A failure in the loyalty/rewards service must not cascade to the order placement flow.
-- **Release velocity without reliability regression** — Engineering teams deploy 15–20 times per week; validation gates ensure speed and safety coexist.
+- **Dependency isolation** — A failure in the loyalty/rewards service must not cascade to the order placement flow. Circuit breakers and fallback paths are non-negotiable, not nice-to-haves.
+- **Release velocity without reliability regression** — Engineering teams deploy 15–20 times per week. Keeping that cadence without increasing incident rate is the core challenge the CI/CD reliability work addresses.
 - **Third-party payment and POS integration** — External dependencies with their own SLAs require defensive timeout and circuit-breaker patterns throughout.
 
 ---
