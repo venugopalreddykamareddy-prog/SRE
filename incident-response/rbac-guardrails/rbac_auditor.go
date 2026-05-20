@@ -237,6 +237,7 @@ func (a *Auditor) checkSensitiveResources(
 func (a *Auditor) fetchRoleRules(ctx context.Context, roleName, ns string) []rbacv1.PolicyRule {
 	role, err := a.cs.RbacV1().Roles(ns).Get(ctx, roleName, metav1.GetOptions{})
 	if err != nil {
+		// TODO: log the error instead of silently returning nil — missing roles skew the audit results
 		return nil
 	}
 	return role.Rules
@@ -247,6 +248,7 @@ func (a *Auditor) fetchRoleRules(ctx context.Context, roleName, ns string) []rba
 // ---------------------------------------------------------------------------
 
 func isClusterAdmin(roleName string) bool {
+	// TODO: move this list into the policy config so it doesn't require a code change to update
 	privileged := []string{"cluster-admin", "admin", "edit"}
 	for _, p := range privileged {
 		if roleName == p {

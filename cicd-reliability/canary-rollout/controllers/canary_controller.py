@@ -206,6 +206,7 @@ class CanaryGateEvaluator:
             ),
         ]
 
+        # TODO: anomaly_score check is missing — need to wire in the ML anomaly detector output
         return GateResult(
             passed=all(c.passed for c in checks),
             checks=checks,
@@ -293,6 +294,7 @@ def run(service: str, stage: int, config_path: str, dry_run: bool) -> int:
             print(f"Promoting {service} to next stage...")
             argo.promote(service)
         else:
+            # TODO: post a Slack message with an approval link instead of just printing
             print(f"Gate passed. Awaiting manual approval before full promotion (auto_promote=false).")
         return 0
     else:

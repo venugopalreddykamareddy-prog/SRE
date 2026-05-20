@@ -142,6 +142,7 @@ class LogTriageClassifier:
                     raise RuntimeError(f"Classification failed after {self.max_retries + 1} attempts: {exc}") from exc
 
     def classify_batch(self, entries: list[LogEntry]) -> list[tuple[LogEntry, TriageResult]]:
+        # TODO: parallelize with ThreadPoolExecutor once we understand the rate limit behavior
         results = []
         for entry in entries:
             result = self.classify(entry)
@@ -170,6 +171,7 @@ def print_triage_report(entry: LogEntry, result: TriageResult) -> None:
 
 
 def export_json(results: list[tuple[LogEntry, TriageResult]], path: str) -> None:
+    # TODO: support append mode for long-running pipelines instead of overwriting
     payload = [
         {
             "entry": asdict(entry),

@@ -78,6 +78,7 @@ class DatadogClient:
         series = resp.json().get("series", [])
         if not series or not series[0].get("pointlist"):
             return 0.0
+        # TODO: this assumes counter metrics; summing gauge points (e.g. latency) will give wrong results
         return sum(p[1] for p in series[0]["pointlist"] if p[1] is not None)
 
 
@@ -199,6 +200,7 @@ class PagerDutyClient:
         payload = {
             "routing_key": self._key,
             "event_action": "trigger",
+            # TODO: include severity in dedup_key — right now a P2 will suppress a P1 escalation for the same service
             "dedup_key": f"{service}-slo-burn",
             "payload": {
                 "summary": alert.description,
