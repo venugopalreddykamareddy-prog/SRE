@@ -1,0 +1,6 @@
+# Override GitHub Linguist's automatic exclusions.
+# Linguist treats files in paths like tooling/, scripts/, and controllers/
+# as build tooling and excludes them from language statistics by default.
+# These are primary source files and should be counted.
+*.py linguist-vendored=false linguist-detectable=true
+*.go linguist-vendored=false linguist-detectable=true
