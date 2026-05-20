@@ -21,4 +21,4 @@ function deploy_observability_pipeline() {
     echo "Deployment completed successfully!"
 }
 
-deply_observability_pipeline  
+deploy_observability_pipeline
